@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Page</title>
+    <style>
+        .card {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px;
+            width: 200px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <h1>User Page</h1>
+    <input type="text" id="categoryFilter" placeholder="Enter category">
+    <button onclick="filterProducts()">Filter</button>
+    <div id="products"></div>
+
+    <div id="chat">
+        <h2>Chat</h2>
+        <input type="text" id="messageInput" placeholder="Type your message">
+        <button onclick="sendMessage()">Send</button>
+        <ul id="messages"></ul>
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:9000');
+
+        ws.onmessage = (event) => {
+            const messages = document.getElementById('messages');
+            const li = document.createElement('li');
+
+            if (event.data instanceof Blob) {
+                const reader = new FileReader();
+                reader.onload = function() {
+                    li.textContent = reader.result;
+                    messages.appendChild(li);
+                };
+                reader.readAsText(event.data);
+            } else {
+                li.textContent = event.data;
+                messages.appendChild(li);
+            }
+        };
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value;
+            ws.send(message);
+            input.value = '';
+        }
+
+        async function loadProducts(category = '') {
+            const query = `
+                query {
+                    products {
+                        id
+                        name
+                        price
+                        description
+                        category
+                    }
+                }
+            `;
+
+            const response = await fetch('http://localhost:4000', { // Измените на URL вашего GraphQL сервера
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query })
+            });
+
+            const { data } = await response.json();
+
+            const productsContainer = document.getElementById('products');
+            productsContainer.innerHTML = '';
+            data.products.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <h2>${product.name}</h2>
+                    <p>Price: ${product.price}</p>
+                    <p>${product.description}</p>
+                    <p>Categories: ${product.category.join(', ')}</p>
+                `;
+                productsContainer.appendChild(card);
+            });
+        }
+
+        loadProducts();
+    </script>
+</body>
+</html>
